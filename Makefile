@@ -1,6 +1,6 @@
 CC=g++
 CFLAGS=-Wall -Wextra -Werror -Wswitch-enum -ggdb -fsanitize=address -fsanitize=undefined -std=c++17
-LIBS=
+LIBS=-lm -lraylib
 
 ARGS=
 OUT=main.out

@@ -9,12 +9,21 @@
  * Description: Entrypoint
  */
 
-#include <iostream>
+#include <raylib.h>
 
-using std::cout, std::endl;
+#define WIDTH  800
+#define HEIGHT 600
 
 int main(void)
 {
-  cout << "Hello, world!" << endl;
+  InitWindow(WIDTH, HEIGHT, "snek");
+  while (!WindowShouldClose())
+  {
+    BeginDrawing();
+    ClearBackground(BLACK);
+    DrawTriangle({400, 0}, {100, 300}, {700, 300}, RED);
+    EndDrawing();
+  }
+  CloseWindow();
   return 0;
 }
