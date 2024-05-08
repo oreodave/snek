@@ -45,9 +45,29 @@ struct Point
 {
   int x, y;
 
-  bool operator==(const struct Point &p) const
+  bool operator==(const Point &p) const
   {
     return x == p.x && y == p.y;
+  }
+
+  Point operator+(const Point &p) const
+  {
+    return {x + p.x, y + p.y};
+  }
+
+  Point operator-(const Point &p) const
+  {
+    return {x - p.x, y - p.y};
+  }
+
+  Point operator*(const Point &p) const
+  {
+    return {x * p.x, y * p.y};
+  }
+
+  Point operator*(int m) const
+  {
+    return {x * m, y * m};
   }
 
   Point() : x{0}, y{0}
