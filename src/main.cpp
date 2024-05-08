@@ -293,51 +293,82 @@ struct Time
 using Clock = chrono::steady_clock;
 int main(void)
 {
-  constexpr size_t X = 50, Y = 50;
+  srand(time(NULL));
+  constexpr size_t X = 10, Y = 10;
   State<X, Y> state;
-  state.player.points.push_back({15, 15});
-  for (size_t i = 0; i < X; ++i)
-    for (size_t j = 0; j < Y; ++j)
-      state.grid[i][j] = Type::FRUIT;
+  state.reset();
+
+  InitWindow(WIDTH, HEIGHT, "snek");
+  SetTargetFPS(60);
+
+  chrono::time_point<Clock> time_start{Clock::now()};
+  constexpr double max_score = 100;
+
+  constexpr double fruit_delta_max = 5;
+  constexpr double fruit_delta_min = 1;
+  constexpr auto fruit_delta       = [](size_t player_size)
+  {
+    return fruit_delta_min +
+           ((fruit_delta_max - fruit_delta_min) *
+            (1 - (player_size < max_score ? player_size / max_score : 1)));
+  };
+
+  chrono::time_point<Clock> fruit_cur{Clock::now()};
+  chrono::time_point<Clock> fruit_prev{Clock::now()};
+
+  constexpr double update_delta_max = 500;
+  constexpr double update_delta_min = 50;
+  constexpr auto update_delta       = [](size_t player_size)
+  {
+    return update_delta_min +
+           ((update_delta_max - update_delta_min) *
+            (1 - (player_size < max_score ? player_size / max_score : 1)));
+  };
+  chrono::time_point<Clock> update_cur{Clock::now()};
+  chrono::time_point<Clock> update_prev{Clock::now()};
 
   Direction dir = Direction::LEFT;
-  InitWindow(WIDTH, HEIGHT, "snek");
-  int fps = 10;
-  SetTargetFPS(fps);
-
-  chrono::time_point<Clock> beg{Clock::now()};
+  bool paused   = false;
   while (!WindowShouldClose())
   {
-    state.player_fruit_collision();
+    if (!paused)
+    {
+      if (IsKeyDown(KEY_J))
+        dir = Direction::DOWN;
+      else if (IsKeyDown(KEY_K))
+        dir = Direction::UP;
+      else if (IsKeyDown(KEY_H))
+        dir = Direction::LEFT;
+      else if (IsKeyDown(KEY_L))
+        dir = Direction::RIGHT;
 
-    if (IsKeyDown(KEY_J) && (Direction)(-((int)dir)) != Direction::DOWN)
-      dir = Direction::DOWN;
-    else if (IsKeyDown(KEY_K) && (Direction)(-((int)dir)) != Direction::UP)
-      dir = Direction::UP;
-    else if (IsKeyDown(KEY_H) && (Direction)(-((int)dir)) != Direction::LEFT)
-      dir = Direction::LEFT;
-    else if (IsKeyDown(KEY_L) && (Direction)(-((int)dir)) != Direction::RIGHT)
-      dir = Direction::RIGHT;
-    else if (IsKeyDown(KEY_EQUAL))
-    {
-      ++fps;
-      if (fps > 60)
-        fps = 60;
-      SetTargetFPS(fps);
-    }
-    else if (IsKeyDown(KEY_MINUS))
-    {
-      --fps;
-      if (fps < 0)
-        fps = 1;
-      SetTargetFPS(fps);
-    }
+      update_cur = Clock::now();
+      if (chrono::duration_cast<chrono::milliseconds>(update_cur - update_prev)
+              .count() >= update_delta(state.player.points.size()))
+      {
+        update_prev = update_cur;
+        if (!(state.player.points.size() > 1 &&
+              ((Point{dir} + (*state.player.points.begin())) ==
+               (*(state.player.points.begin() + 1)))))
+          state.player.dir = dir;
+        bool collide = state.update_player_head();
+        if (collide)
+        {
+          paused = false;
+          // state.reset();
+          time_start = Clock::now();
+        }
+        state.player_fruit_collision();
+      }
 
-    bool collide = state.update_player_head(dir);
-    if (collide)
-    {
-      state.reset();
-      beg = Clock::now();
+      fruit_cur = Clock::now();
+
+      if (chrono::duration_cast<chrono::seconds>(fruit_cur - fruit_prev)
+              .count() >= fruit_delta(state.player.points.size()))
+      {
+        fruit_prev = fruit_cur;
+        state.make_rand_fruit();
+      }
     }
 
     BeginDrawing();
