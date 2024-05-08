@@ -420,16 +420,22 @@ int main(void)
     {
       state.layout = State<X, Y>::Layout::UNLIMITED;
       state.reset();
+      time_start = Clock::now();
+      time_cur   = time_start;
     }
     else if (IsKeyPressed(KEY_TWO))
     {
       state.layout = State<X, Y>::Layout::WALLS;
       state.reset();
+      time_start = Clock::now();
+      time_cur   = time_start;
     }
     else if (IsKeyPressed(KEY_THREE))
     {
       state.layout = State<X, Y>::Layout::WALLED_GARDEN;
       state.reset();
+      time_start = Clock::now();
+      time_cur   = time_start;
     }
     if (!paused && !failed)
     {
