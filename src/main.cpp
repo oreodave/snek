@@ -11,9 +11,12 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstdlib>
 #include <cstring>
+#include <ctime>
 #include <iostream>
 #include <raylib.h>
+#include <raymath.h>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -105,6 +108,7 @@ struct State
 
   struct Player
   {
+    Direction dir;
     std::vector<Point> points;
   } player;
 
@@ -155,13 +159,13 @@ struct State
     return player.points.begin();
   }
 
-  bool update_player_head(Point dir)
+  bool update_player_head()
   {
     auto head          = player_head();
     Point old_position = *head;
     Point new_position = old_position;
-    new_position.y += dir.y;
-    new_position.x += dir.x;
+    new_position.y += Point{player.dir}.y;
+    new_position.x += Point{player.dir}.x;
     new_position.x = mod(new_position.x, a);
     new_position.y = mod(new_position.y, b);
 
@@ -180,14 +184,37 @@ struct State
     return false;
   }
 
-  void player_fruit_collision(void)
+  void make_rand_fruit(void)
+  {
+    size_t x = rand() % a;
+    size_t y = rand() % b;
+    while (grid[x][y] == Type::WALL || is_player(x, y))
+    {
+      x = rand() % a;
+      y = rand() % b;
+    }
+    grid[x][y] = Type::FRUIT;
+  }
+
+  void player_fruit_collision()
   {
     const auto point = player_head();
     if (grid[point->x][point->y] == Type::FRUIT)
     {
-      grid[point->x][point->y]          = Type::EMPTY;
-      std::vector<Point>::iterator last = player.points.end() - 1;
-      player.points.push_back({last->x + 1, last->y});
+      // If only one point currently then put it anywhere
+      grid[point->x][point->y] = Type::EMPTY;
+      if (player.points.size() == 1)
+      {
+        player.points.push_back((Point{player.dir} * -1) + *point);
+      }
+      // Otherwise look at the last two points, calculate a direction
+      // vector then make the new one
+      else
+      {
+        auto last_1 = player.points.end() - 1;
+        auto last_2 = player.points.end() - 2;
+        player.points.push_back(*last_1 + (*last_1 - *last_2));
+      }
     }
   }
 
@@ -195,6 +222,7 @@ struct State
   {
     player.points.clear();
     player.points.push_back({a / 2, b / 2});
+    player.dir = Direction::LEFT;
     memset(grid, 0, sizeof(Type) * a * b);
   }
 };
