@@ -441,13 +441,13 @@ int main(void)
     {
       time_cur  = Clock::now();
       bool fast = false;
-      if (IsKeyPressed(KEY_J))
+      if (IsKeyPressed(KEY_J) || IsKeyPressed(KEY_DOWN))
         dir = Direction::DOWN;
-      else if (IsKeyPressed(KEY_K))
+      else if (IsKeyPressed(KEY_K) || IsKeyPressed(KEY_UP))
         dir = Direction::UP;
-      else if (IsKeyPressed(KEY_H))
+      else if (IsKeyPressed(KEY_H) || IsKeyPressed(KEY_LEFT))
         dir = Direction::LEFT;
-      else if (IsKeyPressed(KEY_L))
+      else if (IsKeyPressed(KEY_L) || IsKeyPressed(KEY_RIGHT))
         dir = Direction::RIGHT;
       else if (IsKeyDown(KEY_SPACE))
         fast = true;
