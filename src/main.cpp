@@ -374,16 +374,21 @@ int main(void)
     BeginDrawing();
     ClearBackground(BLACK);
     state.draw_grid();
-    DrawText("TIME", 0, 0, 25, YELLOW);
     DrawText(
-        Time(chrono::duration_cast<chrono::seconds>(Clock::now() - beg).count())
+        Time(chrono::duration_cast<chrono::seconds>(Clock::now() - time_start)
+                 .count())
             .to_str()
             .c_str(),
-        0, 25, 25, YELLOW);
+        0, 0, 25, YELLOW);
 
     std::stringstream ss;
     ss << "Score: ";
     ss << state.player.points.size() - 1;
+    DrawText(ss.str().c_str(), 0, 25, 20, YELLOW);
+
+    ss.str("");
+    ss << "Next: ";
+    ss << fruit_delta(state.player.points.size());
     DrawText(ss.str().c_str(), 0, 50, 20, YELLOW);
 
     EndDrawing();
