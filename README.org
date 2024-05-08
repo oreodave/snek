@@ -1,0 +1,17 @@
+#+title: Snek - Snake clone
+#+author: Aryadev Chavali
+#+date: 2024-05-08
+
+A snake clone in C++ using Raylib.
+
+To compile have Raylib installed locally (or just download a release
+from https://github.com/raysan5/raylib/releases) then run "make
+RELEASE=1".
+
+Use either vim keys or arrow keys to control the snake.  Press =Space=
+to go fast™ and =grave= to see some more details.
+
+There are 3 layouts, which you press the following number keys to use:
+1) Unlimited (no walls)
+2) Walled (walls on all sides)
+3) Walled garden (walls with gaps on all sides)

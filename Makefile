@@ -1,5 +1,12 @@
 CC=g++
-CFLAGS=-Wall -Wextra -Werror -Wswitch-enum -ggdb -fsanitize=address -fsanitize=undefined -std=c++17
+GFLAGS=-Wall -Wextra -Werror -Wswitch-enum -std=c++17
+DFLAGS=-ggdb -fsanitize=address -fsanitize=undefined
+RFLAGS=-O3
+ifdef RELEASE
+CFLAGS=$(GFLAGS) $(RFLAGS)
+else
+CFLAGS=$(GFLAGS) $(DFLAGS)
+endif
 LIBS=-lm -lraylib
 
 ARGS=
