@@ -146,10 +146,42 @@ struct State
       }
     }
 
-    for (const auto p : player.points)
+    double x_ =
+        rescale(player.points.begin()->x, HEIGHT < WIDTH, (WIDTH - HEIGHT) / 2);
+    double y_ =
+        rescale(player.points.begin()->y, WIDTH < HEIGHT, (HEIGHT - WIDTH) / 2);
+    DrawRectangle(x_, y_, square_size, square_size, YELLOW);
+    // Eyes based on direction
+    double x_eye_1 = x_;
+    double y_eye_1 = y_;
+    double x_eye_2 = x_;
+    double y_eye_2 = y_;
+    switch (player.dir)
     {
-      double x_ = rescale(p.x, HEIGHT < WIDTH, (WIDTH - HEIGHT) / 2);
-      double y_ = rescale(p.y, WIDTH < HEIGHT, (HEIGHT - WIDTH) / 2);
+    case Direction::UP:
+      x_eye_2 += (9.0 / 10) * square_size;
+      break;
+    case Direction::DOWN:
+      y_eye_1 += (9.0 / 10) * square_size;
+      y_eye_2 += (9.0 / 10) * square_size;
+      x_eye_2 += (9.0 / 10) * square_size;
+      break;
+    case Direction::RIGHT:
+      x_eye_1 += (9.0 / 10) * square_size;
+      x_eye_2 += (9.0 / 10) * square_size;
+      y_eye_2 += (9.0 / 10) * square_size;
+      break;
+    case Direction::LEFT:
+      y_eye_2 += (9.0 / 10) * square_size;
+      break;
+    }
+    DrawRectangle(x_eye_1, y_eye_1, square_size / 10, square_size / 10, BLACK);
+    DrawRectangle(x_eye_2, y_eye_2, square_size / 10, square_size / 10, BLACK);
+    for (size_t i = 1; i < player.points.size(); ++i)
+    {
+      const auto &p = player.points[i];
+      x_            = rescale(p.x, HEIGHT < WIDTH, (WIDTH - HEIGHT) / 2);
+      y_            = rescale(p.y, WIDTH < HEIGHT, (HEIGHT - WIDTH) / 2);
       DrawRectangle(x_, y_, square_size, square_size, GREEN);
     }
   }
