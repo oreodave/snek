@@ -68,6 +68,11 @@ struct Point
     return {x * p.x, y * p.y};
   }
 
+  Point operator%(const Point &p) const
+  {
+    return {(int)mod(x, p.x), (int)mod(y, p.y)};
+  }
+
   Point operator*(int m) const
   {
     return {x * m, y * m};
@@ -106,6 +111,13 @@ struct State
   static constexpr double my          = HEIGHT / b;
   static constexpr double square_size = mx < my ? mx : my;
 
+  enum class Layout
+  {
+    UNLIMITED,
+    WALLS,
+    WALLED_GARDEN
+  } layout;
+
   struct Player
   {
     Direction dir;
@@ -137,12 +149,13 @@ struct State
       {
         double y_ = rescale(y, WIDTH < HEIGHT, (HEIGHT - WIDTH) / 2);
 
-        if (grid[x][y] == Type::EMPTY)
-          DrawRectangleLines(x_, y_, square_size, square_size, WHITE);
-        else if (grid[x][y] == Type::WALL)
+        DrawRectangleLines(x_, y_, square_size, square_size, WHITE);
+
+        if (grid[x][y] == Type::WALL)
           DrawRectangle(x_, y_, square_size, square_size, WHITE);
         else if (grid[x][y] == Type::FRUIT)
-          DrawRectangle(x_, y_, square_size, square_size, RED);
+          DrawCircle(x_ + square_size / 2, y_ + square_size / 2,
+                     square_size / 2, RED);
       }
     }
 
@@ -175,14 +188,16 @@ struct State
       y_eye_2 += (9.0 / 10) * square_size;
       break;
     }
-    DrawRectangle(x_eye_1, y_eye_1, square_size / 10, square_size / 10, BLACK);
-    DrawRectangle(x_eye_2, y_eye_2, square_size / 10, square_size / 10, BLACK);
+
+    DrawRectangle(x_eye_1, y_eye_1, square_size / 10, square_size / 10, RED);
+    DrawRectangle(x_eye_2, y_eye_2, square_size / 10, square_size / 10, RED);
     for (size_t i = 1; i < player.points.size(); ++i)
     {
       const auto &p = player.points[i];
       x_            = rescale(p.x, HEIGHT < WIDTH, (WIDTH - HEIGHT) / 2);
       y_            = rescale(p.y, WIDTH < HEIGHT, (HEIGHT - WIDTH) / 2);
-      DrawRectangle(x_, y_, square_size, square_size, GREEN);
+      DrawCircle(x_ + square_size / 2, y_ + square_size / 2, square_size / 2,
+                 GREEN);
     }
   }
 
@@ -195,11 +210,7 @@ struct State
   {
     auto head          = player_head();
     Point old_position = *head;
-    Point new_position = old_position;
-    new_position.y += Point{player.dir}.y;
-    new_position.x += Point{player.dir}.x;
-    new_position.x = mod(new_position.x, a);
-    new_position.y = mod(new_position.y, b);
+    Point new_position = (old_position + Point{player.dir}) % Point{a, b};
 
     if (is_player(new_position.x, new_position.y) ||
         grid[new_position.x][new_position.y] == Type::WALL)
@@ -226,6 +237,18 @@ struct State
       y = rand() % b;
     }
     grid[x][y] = Type::FRUIT;
+  }
+
+  void make_rand_wall(void)
+  {
+    size_t x = rand() % a;
+    size_t y = rand() % b;
+    while (grid[x][y] == Type::FRUIT || is_player(x, y))
+    {
+      x = rand() % a;
+      y = rand() % b;
+    }
+    grid[x][y] = Type::WALL;
   }
 
   void player_fruit_collision()
@@ -256,140 +279,242 @@ struct State
     player.points.push_back({a / 2, b / 2});
     player.dir = Direction::LEFT;
     memset(grid, 0, sizeof(Type) * a * b);
+    switch (layout)
+    {
+    case Layout::UNLIMITED:
+      break;
+    case Layout::WALLS: {
+      size_t i = 0;
+      for (size_t j = 0; j < b; ++j)
+        grid[i][j] = Type::WALL;
+      i = a - 1;
+      for (size_t j = 0; j < b; ++j)
+        grid[i][j] = Type::WALL;
+      size_t j = 0;
+      for (i = 0; i < a; ++i)
+        grid[i][j] = Type::WALL;
+      j = b - 1;
+      for (i = 0; i < a; ++i)
+        grid[i][j] = Type::WALL;
+      break;
+    }
+    case Layout::WALLED_GARDEN: {
+      size_t i = 0;
+      for (size_t j = 0; j < b; ++j)
+        if (j > (b * 2 / 3) || j < (b / 3))
+          grid[i][j] = Type::WALL;
+      i = a - 1;
+      for (size_t j = 0; j < b; ++j)
+        if (j > (b * 2 / 3) || j < (b / 3))
+          grid[i][j] = Type::WALL;
+      size_t j = 0;
+      for (i = 0; i < a; ++i)
+        if (i > (a * 2 / 3) || i < (a / 3))
+          grid[i][j] = Type::WALL;
+      j = b - 1;
+      for (i = 0; i < a; ++i)
+        if (i > (a * 2 / 3) || i < (a / 3))
+          grid[i][j] = Type::WALL;
+      break;
+    }
+    }
   }
 };
 
 namespace chrono = std::chrono;
+using Clock      = chrono::steady_clock;
 
-struct Time
+struct Timer
 {
-  size_t hours, minutes, seconds;
+  double (*delta)(size_t);
+  chrono::time_point<Clock> prev;
 
-  Time(size_t s)
-  {
-    hours = s / 3600;
-    s -= (hours * 3600);
-    minutes = s / 60;
-    s -= (minutes * 60);
-    seconds = s;
-  }
+  Timer(double (*delta_fn)(size_t)) : delta{delta_fn}, prev{Clock::now()}
+  {}
 
-  std::string to_str(void)
+  bool triggered(size_t player_size)
   {
-    std::stringstream s;
-    if (hours < 10)
-      s << "0";
-    s << std::to_string(hours) + ":";
-    if (minutes < 10)
-      s << "0";
-    s << std::to_string(minutes) + ":";
-    if (seconds < 10)
-      s << "0";
-    s << std::to_string(seconds);
-    return s.str();
+    chrono::time_point<Clock> current = Clock::now();
+    if (chrono::duration_cast<chrono::milliseconds>(current - prev).count() >
+        delta(player_size))
+    {
+      prev = current;
+      return true;
+    }
+    return false;
   }
 };
 
-using Clock = chrono::steady_clock;
+template <size_t min, size_t max, size_t max_score>
+constexpr auto make_delta()
+{
+  return [](size_t player_size)
+  {
+    return max - ((max - min) * (player_size < max_score
+                                     ? (double)player_size / (double)max_score
+                                     : 1));
+  };
+}
+
+template <size_t X, size_t Y>
+void wall_layout(State<X, Y> &state)
+{
+  state.reset();
+  size_t i = 0;
+  for (size_t j = 0; j < Y; ++j)
+    state.grid[i][j] = Type::WALL;
+  i = X - 1;
+  for (size_t j = 0; j < Y; ++j)
+    state.grid[i][j] = Type::WALL;
+  size_t j = 0;
+  for (i = 0; i < X; ++i)
+    state.grid[i][j] = Type::WALL;
+  j = Y - 1;
+  for (i = 0; i < X; ++i)
+    state.grid[i][j] = Type::WALL;
+}
+
 int main(void)
 {
   srand(time(NULL));
-  constexpr size_t X = 10, Y = 10;
+  constexpr size_t X = 20, Y = 20;
   State<X, Y> state;
   state.reset();
 
   InitWindow(WIDTH, HEIGHT, "snek");
   SetTargetFPS(60);
 
+  constexpr size_t update_max_score = 50;
+  constexpr size_t wall_min_score   = 40;
+
+  Timer update_timer{make_delta<80, 300, update_max_score>()};
+  Timer fruit_timer{make_delta<1000, 5000, update_max_score>()};
+  Timer wall_timer{make_delta<5000, 10000, 100>()};
+
   chrono::time_point<Clock> time_start{Clock::now()};
-  constexpr double max_score = 100;
-
-  constexpr double fruit_delta_max = 5;
-  constexpr double fruit_delta_min = 1;
-  constexpr auto fruit_delta       = [](size_t player_size)
-  {
-    return fruit_delta_min +
-           ((fruit_delta_max - fruit_delta_min) *
-            (1 - (player_size < max_score ? player_size / max_score : 1)));
-  };
-
-  chrono::time_point<Clock> fruit_cur{Clock::now()};
-  chrono::time_point<Clock> fruit_prev{Clock::now()};
-
-  constexpr double update_delta_max = 500;
-  constexpr double update_delta_min = 50;
-  constexpr auto update_delta       = [](size_t player_size)
-  {
-    return update_delta_min +
-           ((update_delta_max - update_delta_min) *
-            (1 - (player_size < max_score ? player_size / max_score : 1)));
-  };
-  chrono::time_point<Clock> update_cur{Clock::now()};
-  chrono::time_point<Clock> update_prev{Clock::now()};
+  chrono::time_point<Clock> time_cur{Clock::now()};
 
   Direction dir = Direction::LEFT;
   bool paused   = false;
+  bool failed   = false;
+  bool details  = false;
   while (!WindowShouldClose())
   {
-    if (!paused)
+    if (IsKeyPressed(KEY_P))
     {
-      if (IsKeyDown(KEY_J))
-        dir = Direction::DOWN;
-      else if (IsKeyDown(KEY_K))
-        dir = Direction::UP;
-      else if (IsKeyDown(KEY_H))
-        dir = Direction::LEFT;
-      else if (IsKeyDown(KEY_L))
-        dir = Direction::RIGHT;
-
-      update_cur = Clock::now();
-      if (chrono::duration_cast<chrono::milliseconds>(update_cur - update_prev)
-              .count() >= update_delta(state.player.points.size()))
+      paused = !paused;
+    }
+    else if (IsKeyPressed(KEY_ENTER))
+    {
+      if (failed)
       {
-        update_prev = update_cur;
+        state.reset();
+        time_start = Clock::now();
+        failed     = false;
+        paused     = false;
+      }
+    }
+    else if (IsKeyPressed(KEY_GRAVE))
+      details = !details;
+    else if (IsKeyPressed(KEY_ONE))
+    {
+      state.layout = State<X, Y>::Layout::UNLIMITED;
+      state.reset();
+    }
+    else if (IsKeyPressed(KEY_TWO))
+    {
+      state.layout = State<X, Y>::Layout::WALLS;
+      state.reset();
+    }
+    else if (IsKeyPressed(KEY_THREE))
+    {
+      state.layout = State<X, Y>::Layout::WALLED_GARDEN;
+      state.reset();
+    }
+    if (!paused && !failed)
+    {
+      time_cur  = Clock::now();
+      bool fast = false;
+      if (IsKeyPressed(KEY_J))
+        dir = Direction::DOWN;
+      else if (IsKeyPressed(KEY_K))
+        dir = Direction::UP;
+      else if (IsKeyPressed(KEY_H))
+        dir = Direction::LEFT;
+      else if (IsKeyPressed(KEY_L))
+        dir = Direction::RIGHT;
+      else if (IsKeyDown(KEY_SPACE))
+        fast = true;
+
+      if (update_timer.triggered(fast ? update_max_score
+                                      : state.player.points.size()))
+      {
         if (!(state.player.points.size() > 1 &&
-              ((Point{dir} + (*state.player.points.begin())) ==
+              (((Point{dir} + (*state.player.points.begin())) % Point{X, Y}) ==
                (*(state.player.points.begin() + 1)))))
           state.player.dir = dir;
         bool collide = state.update_player_head();
         if (collide)
         {
-          paused = false;
-          // state.reset();
-          time_start = Clock::now();
+          failed = true;
         }
         state.player_fruit_collision();
       }
 
-      fruit_cur = Clock::now();
-
-      if (chrono::duration_cast<chrono::seconds>(fruit_cur - fruit_prev)
-              .count() >= fruit_delta(state.player.points.size()))
-      {
-        fruit_prev = fruit_cur;
+      if (fruit_timer.triggered(state.player.points.size()))
         state.make_rand_fruit();
-      }
+
+      if (state.player.points.size() > wall_min_score &&
+          wall_timer.triggered(state.player.points.size()))
+        state.make_rand_wall();
     }
 
     BeginDrawing();
     ClearBackground(BLACK);
     state.draw_grid();
-    DrawText(
-        Time(chrono::duration_cast<chrono::seconds>(Clock::now() - time_start)
-                 .count())
-            .to_str()
-            .c_str(),
-        0, 0, 25, YELLOW);
+
+    size_t seconds =
+        chrono::duration_cast<chrono::seconds>(time_cur - time_start).count();
+    size_t hours   = seconds / 3600;
+    seconds        = seconds % 3600;
+    size_t minutes = seconds / 60;
+    seconds        = seconds % 60;
 
     std::stringstream ss;
-    ss << "Score: ";
-    ss << state.player.points.size() - 1;
-    DrawText(ss.str().c_str(), 0, 25, 20, YELLOW);
+    ss << (hours < 10 ? "0" : "") << hours << ":" << (minutes < 10 ? "0" : "")
+       << minutes << ":" << (seconds < 10 ? "0" : "") << seconds;
+    DrawText(ss.str().c_str(), 0, 0, 25, YELLOW);
 
     ss.str("");
-    ss << "Next: ";
-    ss << fruit_delta(state.player.points.size());
-    DrawText(ss.str().c_str(), 0, 50, 20, YELLOW);
+    ss << "Score: ";
+    ss << state.player.points.size() - 1;
+    DrawText(ss.str().c_str(), 0, 30, 20, YELLOW);
+
+    if (details)
+    {
+      ss.str("");
+      ss << "Next: " << fruit_timer.delta(state.player.points.size()) / 1000
+         << "s";
+      DrawText(ss.str().c_str(), 0, 80, 18, YELLOW);
+
+      ss.str("");
+      ss << 1 / (update_timer.delta(state.player.points.size()) / 1000)
+         << " f/s";
+      DrawText(ss.str().c_str(), 0, 100, 20, YELLOW);
+    }
+
+    if (failed)
+    {
+      size_t x_top = state.rescale(1, (HEIGHT < WIDTH), (WIDTH - HEIGHT) / 2);
+      size_t y_top = state.rescale(1, (WIDTH < HEIGHT), (HEIGHT - WIDTH) / 2);
+      size_t x_size =
+          state.rescale(X - 1, (HEIGHT < WIDTH), (WIDTH - HEIGHT) / 2) - x_top;
+      size_t y_size =
+          state.rescale(Y - 1, (WIDTH < HEIGHT), (HEIGHT - WIDTH) / 2) - y_top;
+      DrawRectangle(x_top, y_top, x_size, y_size, GRAY);
+      DrawText("GAME OVER", x_top + x_size / 5, y_top + y_size / 3, x_size / 10,
+               RED);
+    }
 
     EndDrawing();
   }
